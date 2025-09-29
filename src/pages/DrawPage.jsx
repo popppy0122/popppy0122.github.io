@@ -5,153 +5,197 @@ import ResultReveal from './ResultReveal';
 import './css/draw.css';
 import { Plus, Minus } from 'lucide-react';
 import { getAuth, onAuthStateChanged, getIdTokenResult } from 'firebase/auth';
+import Confetti from 'react-confetti'; // ✅ draw 바로 아래에서 렌더하기 위해 상위에서 import
 
 function DrawPage() {
-    const {
-        prizes,
-        isLocked,
-        isClosed,
-        loadFromFirebase,
-        updatePrize,
-        saveToFirebase,
-        noticeMessage,
-        themeColor  
-    } = useDrawStore();
+  const {
+    prizes,
+    isClosed,
+    loadFromFirebase,
+    updatePrize,
+    saveToFirebase,
+    noticeMessage
+  } = useDrawStore();
 
-    const [isLoading, setIsLoading] = useState(true);
-    const [drawCount, setDrawCount] = useState(1);
-    const [results, setResults] = useState([]);
-    const [showResult, setShowResult] = useState(false);
-    const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [drawCount, setDrawCount] = useState(1);
+  const [results, setResults] = useState([]);
+  const [showResult, setShowResult] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            await loadFromFirebase();
-            setIsLoading(false);
-        };
-        fetchData();
-    }, []);
+  // ✅ 상위에서 컨페티 표시 제어
+  const [confettiOn, setConfettiOn] = useState(false);
 
-    useEffect(() => {
-        const auth = getAuth();
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                const token = await getIdTokenResult(user);
-                setIsAdmin(token.claims.isAdmin === true);
-            } else {
-                setIsAdmin(false);
-            }
-        });
-
-        return () => unsubscribe();
-    }, []);
-
-    const totalRemaining = prizes.reduce((sum, p) => sum + p.remaining, 0);
-    const isFinished = totalRemaining === 0;
-    const isUnavailable = isFinished || isClosed;
-
-    const buildDrawPool = () => {
-        const pool = [];
-        prizes.forEach((prize) => {
-            for (let i = 0; i < prize.remaining; i++) {
-                pool.push(prize.rank);
-            }
-        });
-        return pool;
+  useEffect(() => {
+    const fetchData = async () => {
+      await loadFromFirebase();
+      setIsLoading(false);
     };
+    fetchData();
+  }, [loadFromFirebase]); // ✅ 의존성 추가
 
-    const getPrizeByRank = (rank) => prizes.find((p) => p.rank === rank);
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const token = await getIdTokenResult(user);
+        setIsAdmin(token.claims.isAdmin === true);
+      } else {
+        setIsAdmin(false);
+      }
+    });
 
-    const draw = () => {
-        const pool = buildDrawPool();
+    return () => unsubscribe();
+  }, []);
 
-        if (pool.length < drawCount) {
-            alert('남은 상품 수량보다 더 많이 뽑을 수 없습니다!');
-            return;
-        }
+  const totalRemaining = prizes.reduce((sum, p) => sum + p.remaining, 0);
+  const isFinished = totalRemaining === 0;
+  const isUnavailable = isFinished || isClosed;
 
-        const drawnRanks = [];
-        const updatedPrizes = [...prizes];
+  const buildDrawPool = () => {
+    const pool = [];
+    prizes.forEach((prize) => {
+      for (let i = 0; i < prize.remaining; i++) {
+        pool.push(prize.rank);
+      }
+    });
+    return pool;
+  };
 
-        for (let i = 0; i < drawCount; i++) {
-            const randomIndex = Math.floor(Math.random() * pool.length);
-            const selectedRank = pool[randomIndex];
-            drawnRanks.push(selectedRank);
-            const firstIndex = pool.indexOf(selectedRank);
-            pool.splice(firstIndex, 1);
-            const target = updatedPrizes.find((p) => p.rank === selectedRank);
-            if (target) {
-                target.remaining -= 1;
-            }
-        }
+  const getPrizeByRank = (rank) => prizes.find((p) => p.rank === rank);
 
-        updatedPrizes.forEach((p, index) => {
-            updatePrize(index, {
-                ...prizes[index],
-                remaining: p.remaining
-            });
-        });
-        saveToFirebase();
+  const draw = () => {
+    const pool = buildDrawPool();
 
-        const fullResults = drawnRanks.map(rank => {
-            const prize = getPrizeByRank(rank);
-            return {
-                rank,
-                name: prize.name,
-                requiresShipping: prize.requiresShipping || false
-            };
-        });
+    if (pool.length < drawCount) {
+      alert('남은 상품 수량보다 더 많이 뽑을 수 없습니다!');
+      return;
+    }
 
-        setResults(fullResults);
-        setShowResult(true);
-    };
+    const drawnRanks = [];
+    const updatedPrizes = [...prizes];
 
-    const reset = () => {
-        setShowResult(false);
-        setResults([]);
-    };
+    for (let i = 0; i < drawCount; i++) {
+      const randomIndex = Math.floor(Math.random() * pool.length);
+      const selectedRank = pool[randomIndex];
+      drawnRanks.push(selectedRank);
+      const firstIndex = pool.indexOf(selectedRank);
+      pool.splice(firstIndex, 1);
+      const target = updatedPrizes.find((p) => p.rank === selectedRank);
+      if (target) {
+        target.remaining -= 1;
+      }
+    }
 
-    return (
-        <div className={`draw ${themeColor}`}>
-            <div className="copy no-capture">Copyright 2025. Dingdongsun. All rights reserved.</div>
-            <h1>Lucky Draw</h1>
-            <p>{noticeMessage}</p>
-            <div className='draw-wrapper'>
-                {isLoading ? (
-                    <div></div>
-                ) : showResult ? (
-                    <ResultReveal results={results} onFinish={reset} />
+    updatedPrizes.forEach((p, index) => {
+      updatePrize(index, {
+        ...prizes[index],
+        remaining: p.remaining
+      });
+    });
+    saveToFirebase();
+
+    const fullResults = drawnRanks.map((rank) => {
+      const prize = getPrizeByRank(rank);
+      return {
+        rank,
+        name: prize.name,
+        requiresShipping: prize.requiresShipping || false
+      };
+    });
+
+    setResults(fullResults);
+    setShowResult(true);
+  };
+
+  const reset = () => {
+    setShowResult(false);
+    setResults([]);
+    setConfettiOn(false); // 혹시 켜져 있으면 안전하게 끔
+  };
+
+  return (
+    <div className={`draw`}>
+      {/* ✅ draw 바로 아래에서 컨페티 렌더 */}
+      {confettiOn && (
+        <Confetti
+          className="no-capture confetti-canvas"
+          numberOfPieces={120}
+          gravity={0.3}
+        />
+      )}
+
+      <div className="copy no-capture">Copyright 2025. Dingdongsun. All rights reserved.</div>
+      <h1 className='custom'>Lucky Draw</h1>
+      <p>{noticeMessage}</p>
+      <div className="draw-main">
+        <div className='draw-wrapper'>
+            {isLoading ? (
+            <div></div>
+            ) : showResult ? (
+            <ResultReveal
+                results={results}
+                onFinish={reset}
+                onConfettiChange={setConfettiOn} // ✅ 하위에 콜백 전달
+            />
+            ) : (
+            <div className='draw-contents'>
+                {isUnavailable ? (
+                <div>럭키드로우가 마감되었습니다.</div>
                 ) : (
-                    <div className='draw-contents'>
-                        {isUnavailable ? (
-                            <div>럭키드로우가 마감되었습니다.</div>
-                        ) : (
-                            <>
-                                {totalRemaining <= 50 && (
-                                    <div className="remaining-warning">
-                                        럭키 드로우가 {totalRemaining}개 남았습니다.
-                                    </div>
-                                )}
-                                <div className='draw-row'>
-                                    <div className="draw-count-control">
-                                        <button className='minus' onClick={() => setDrawCount((prev) => Math.max(1, prev - 1))}><Minus /></button>
-                                        <input type="number" min="1" max="100" value={drawCount} onChange={(e) => setDrawCount(Number(e.target.value))} />
-                                        <button className='plus' onClick={() => setDrawCount((prev) => Math.min(100, prev + 1))}><Plus /></button>
-                                    </div>
-                                </div>
-                                <button className={`go-draw ${themeColor}`} onClick={draw} disabled={!isAdmin} style={{width: 260}}>
-                                    Draw!
-                                </button>
-                            </>
-                        )}
+                <>
+                    {totalRemaining <= 50 && (
+                    <div className="remaining-warning">
+                        럭키 드로우가 {totalRemaining}개 남았습니다.
                     </div>
+                    )}
+                    <div className='draw-row'>
+                    <div className="draw-count-control">
+                        <button
+                        className='minus'
+                        onClick={() => setDrawCount((prev) => Math.max(1, prev - 1))}
+                        >
+                        <Minus />
+                        </button>
+                        <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={drawCount}
+                        onChange={(e) => setDrawCount(Number(e.target.value))}
+                        />
+                        <button
+                        className='plus'
+                        onClick={() => setDrawCount((prev) => Math.min(100, prev + 1))}
+                        >
+                        <Plus />
+                        </button>
+                    </div>
+                    </div>
+                    <button
+                    className={`go-draw`}
+                    onClick={draw}
+                    disabled={!isAdmin}
+                    style={{ width: 260 }}
+                    >
+                    Draw!
+                    </button>
+                </>
                 )}
             </div>
-            <a href={isAdmin ? '/#/admin' : '/#/admin-login'} className="go-admin no-capture">
-                {isAdmin ? '관리자 페이지로 이동' : '관리자로 로그인'}
-            </a>
+            )}
         </div>
-    );
+
+        <a href={isAdmin ? '/#/admin' : '/#/admin-login'} className="go-admin no-capture">
+            {isAdmin ? '관리자 페이지로 이동' : '관리자로 로그인'}
+        </a>
+    </div>
+      {/* 데코레이션: CSS로 위치/크기/각도 고정 배치 */}
+      <div className="c1 cr"></div>
+      <div className="c2 cr"></div>
+      <div className="c3 cr"></div>
+    </div>
+  );
 }
 
 export default DrawPage;

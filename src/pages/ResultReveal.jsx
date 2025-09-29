@@ -1,149 +1,151 @@
-import React, { useState, useEffect } from 'react';
-import Confetti from 'react-confetti';
+// ResultReveal.jsx
+import React, { useState, useEffect, useCallback } from 'react';
 import useDrawStore from '../store/useDrawStore';
 import ShippingFormModal from './ShippingFormModal';
-import ImageCaptureQR from '../components/ImageCaptureQR';
 
+function ResultReveal({ results, onFinish, onConfettiChange }) {
+  // eslint-disable-next-line
+  const { displayMode, themeColor } = useDrawStore();
+  const [revealed, setRevealed] = useState([]);
+  // eslint-disable-next-line
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showSummary, setShowSummary] = useState(false);
+  const [showShippingModal, setShowShippingModal] = useState(false);
+  const HIGH_COLOR = '#fe9ae2'; // 원하는 컬러
 
-function ResultReveal({ results, onFinish }) {
-    const { displayMode,themeColor  } = useDrawStore();
-    const [revealed, setRevealed] = useState([]);
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [showConfetti, setShowConfetti] = useState(false);
-    const [showSummary, setShowSummary] = useState(false);
-    const [showShippingModal, setShowShippingModal] = useState(false);
+  const isHighRank = (item) => item.rank === 1 || item.rank === 2;
 
-    const isHighRank = (item) => item.rank === 1 || item.rank === 2;
+  // 전체 요약용 그룹화
+  const groupedResults = results.reduce((acc, item) => {
+    const key = `${item.rank}-${item.name}`;
+    if (!acc[key]) {
+      acc[key] = { ...item, count: 1 };
+    } else {
+      acc[key].count += 1;
+    }
+    return acc;
+  }, {});
+  const summary = Object.values(groupedResults).sort((a, b) => a.rank - b.rank);
+  const needsShipping = summary.some((r) => r.requiresShipping);
 
-    // 전체 요약용 그룹화
-    const groupedResults = results.reduce((acc, item) => {
-        const key = `${item.rank}-${item.name}`;
-        if (!acc[key]) {
-            acc[key] = { ...item, count: 1 };
-        } else {
-            acc[key].count += 1;
-        }
-        return acc;
-    }, {});
-    const summary = Object.values(groupedResults).sort((a, b) => a.rank - b.rank);
-    const needsShipping = summary.some((r) => r.requiresShipping);
+  const renderLabel = (item) => {
+    if (displayMode === 'rank') return `${item.rank}등`;
+    if (displayMode === 'prize') return `${item.name}`;
+    return `${item.rank}등 - ${item.name}`;
+  };
 
-    const renderLabel = (item) => {
-        if (displayMode === 'rank') return `${item.rank}등`;
-        if (displayMode === 'prize') return `${item.name}`;
-        return `${item.rank}등 - ${item.name}`;
-    };
+  // ✅ useCallback으로 고정해 의존성 경고 해소
+  const handleReveal = useCallback((index) => {
+    const item = results[index];
+    if (!item) return;
 
-    const handleReveal = (index) => {
-        const item = results[index];
+    if (isHighRank(item)) {
+      onConfettiChange?.(true); // 상위에서 컨페티 켜기
+    }
 
-        if (isHighRank(item)) {
-            setShowConfetti(true); // ❗️ 끄지 않음!
-        }
+    setTimeout(() => {
+      setRevealed((prev) => (prev.includes(index) ? prev : [...prev, index]));
+    }, isHighRank(item) ? 500 : 0);
+  }, [results, onConfettiChange]);
 
-        setTimeout(() => {
-            setRevealed((prev) => [...prev, index]);
-        }, isHighRank(item) ? 500 : 0);
-    };
+  const handleShowSummary = () => {
+    setShowSummary(true);
+  };
 
-    const handleShowSummary = () => {
-        setShowSummary(true);
-    };
+  // 일반 등수 자동 reveal
+  useEffect(() => {
+    if (currentIndex < results.length) {
+      const item = results[currentIndex];
+      if (item && !isHighRank(item)) {
+        handleReveal(currentIndex);
+      }
+    }
+  }, [currentIndex, results, handleReveal]); // ✅ handleReveal 추가
 
-    useEffect(() => {
-        // 자동 reveal for 일반 등수
-        if (currentIndex < results.length) {
-            const item = results[currentIndex];
-            if (!isHighRank(item)) {
-                handleReveal(currentIndex);
-            }
-        }
-    }, [currentIndex]);
+  const handleFinish = () => {
+    onConfettiChange?.(false); // 종료 시 컨페티 끄기
+    onFinish();
+  };
 
-    const handleFinish = () => {
-        setShowConfetti(false); // ✅ 이 시점에만 컨페티 끔
-        onFinish();             // 외부 종료 콜백 호출
-    };
+  // 언마운트 시 혹시 켜져 있으면 끄기 (안전)
+  useEffect(() => {
+    return () => onConfettiChange?.(false);
+  }, [onConfettiChange]);
 
-    return (
-        <div className="draw-contents">
-            {showConfetti && (
-                <Confetti
-                    className="no-capture confetti-canvas"
-                    numberOfPieces={120}
-                    gravity={0.3}
-                />
-            )}
+  return (
+    <div className="draw-contents">
+      {/* 높은 등수 배경색을 !important로 적용하기 위한 보조 스타일 */}
+      <style>{`
+        .high-bg { background-color: var(--high-bg) !important; }
+      `}</style>
 
-            {!showSummary ? (
-                <div>
-                    <h2>당첨 결과</h2>
-                    <ul>
-                        {results.map((r, i) => {
-                            const isHigh = isHighRank(r);
-                            const isRevealed = revealed.includes(i);
-                            return (
-                                <li
-                                    key={i}
-                                    className={`fade-in rank-${r.rank} ${isHigh ? themeColor : ''}`}
-                                    data-rank={r.rank}
-                                    data-label={renderLabel(r)}
-                                    style={{ '--fade-index': i }}
-                                >
-                                    {isHigh && !isRevealed ? (
-                                        <div className="pulse" onClick={() => handleReveal(i)}>
-                                            <span>♥</span>
-                                        </div>
-                                    ) : (
-                                        <span className={isHigh ? 'reveal-text' : ''}>
-                                            {renderLabel(r)}
-                                        </span>
-                                    )}
-                                </li>
-                            );
-                        })}
-                    </ul>
-                    <button className={`go-draw no-capture ${themeColor}`} onClick={handleShowSummary} style={{ width: 260 }}>
-                        전체 결과 보기
-                    </button>
-                    {results.some((r, i) => isHighRank(r) && revealed.includes(i)) && (
-                        <ImageCaptureQR revealedIndexes={revealed} results={results} />
-                    )}
-                </div>
-            ) : (
-                <div>
-                    <h2 className="draw-result">전체 당첨 결과</h2>
-                    <ul>
-                        {summary.map((r, i) => (
-                            <li key={i}>
-                                {renderLabel(r)} ({r.count}개)
-                            </li>
-                        ))}
-                    </ul>
+      {!showSummary ? (
+        <div>
+          <h2>당첨 결과</h2>
+          <ul>
+            {results.map((r, i) => {
+              const isHigh = isHighRank(r);
+              const isRevealed = revealed.includes(i);
+              return (
+                <li
+                  key={i}
+                  className={`fade-in rank-${r.rank} ${isHigh ? 'high high-bg' : ''}`}
+                  data-rank={r.rank}
+                  data-label={renderLabel(r)}
+                  style={{ '--fade-index': i, '--high-bg': isHigh ? HIGH_COLOR : undefined }}
+                >
+                  {isHigh && !isRevealed ? (
+                    <div className="pulse" onClick={() => handleReveal(i)}>
+                      <span>♥</span>
+                    </div>
+                  ) : (
+                    <span className={isHigh ? 'reveal-text' : ''}>
+                      {renderLabel(r)}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
 
-                    {needsShipping && (
-                        <button
-                            className={`go-draw no-capture ${themeColor}`}
-                            onClick={() => setShowShippingModal(true)}
-                        >
-                            배송 정보 입력하기
-                        </button>
-                    )}
-
-                    <button className={`go-draw no-capture ${themeColor}`} onClick={handleFinish}>
-                        확인 완료
-                    </button>
-                </div>
-            )}
-
-            {showShippingModal && (
-                <ShippingFormModal
-                    prizes={summary}
-                    onClose={() => setShowShippingModal(false)}
-                />
-            )}
+          <button className={`go-draw no-capture`} onClick={handleShowSummary} style={{ width: 260 }}>
+            전체 결과 보기
+          </button>
         </div>
-    );
+      ) : (
+        <div>
+          <h2 className="draw-result">전체 당첨 결과</h2>
+          <ul>
+            {summary.map((r, i) => (
+              <li key={i}>
+                {renderLabel(r)} ({r.count}개)
+              </li>
+            ))}
+          </ul>
+
+          {needsShipping && (
+            <button
+              className={`go-draw no-capture`}
+              onClick={() => setShowShippingModal(true)}
+            >
+              배송 정보 입력하기
+            </button>
+          )}
+
+          <button className={`go-draw no-capture`} onClick={handleFinish}>
+            확인 완료
+          </button>
+        </div>
+      )}
+
+      {showShippingModal && (
+        <ShippingFormModal
+          prizes={summary}
+          onClose={() => setShowShippingModal(false)}
+        />
+      )}
+    </div>
+  );
 }
 
 export default ResultReveal;

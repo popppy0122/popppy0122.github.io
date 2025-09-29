@@ -22,10 +22,6 @@ function AdminPage() {
         saveToFirebase,
         loadFromFirebase,
         listenToFirebase,
-        setNoticeMessage,
-        noticeMessage,
-        themeColor,
-        setThemeColor,
     } = useDrawStore();
 
     const [showModal, setShowModal] = useState(false);
@@ -37,12 +33,15 @@ function AdminPage() {
             console.log('[Auth] 관리자 권한 없음 → /admin-login으로 이동');
             navigate('/admin-login');
         }
-    }, [isAdmin]);
+    }, [isAdmin, navigate]); // ✅ navigate 추가
 
     useEffect(() => {
         loadFromFirebase();
-        listenToFirebase();
-    }, []);
+        const cleanup = listenToFirebase?.(); // listenToFirebase가 언서브 반환 시 처리
+        return () => {
+            if (typeof cleanup === 'function') cleanup();
+        };
+    }, [loadFromFirebase, listenToFirebase]); // ✅ 의존성 추가
 
     const logout = useAuthStore((s) => s.logout);
 
@@ -190,37 +189,6 @@ function AdminPage() {
                 </div>
             </div>
             <div className='admin-wrapper'>
-                <div className="admin-row">
-                    <h2>테마 색상 선택</h2>
-                    <div className='theme-label'>
-                        {['gradient1', 'gradient2', 'gradient3', 'gradient4', 'gradient5'].map((color) => (
-                            <label key={color} style={{ display: 'flex', alignItems: 'center' }}>
-                                <input
-                                    type="radio"
-                                    name="themeColor"
-                                    value={color}
-                                    checked={themeColor === color}
-                                    onChange={() => setThemeColor(color)}
-                                    disabled={isLocked}
-                                />
-                                <span className={`${color}`}
-                                >
-                                    {color}
-                                </span>
-                            </label>
-                        ))}
-                    </div>
-                </div>
-                <div className="admin-row">
-                    <h2>문구</h2>
-                    <input
-                        type="text"
-                        placeholder="사용자에게 보여줄 문구를 입력하세요. ex) 이벤트명"
-                        value={noticeMessage}
-                        onChange={(e) => setNoticeMessage(e.target.value)}
-                        disabled={isLocked}
-                    />
-                </div>
                 <div className="admin-row">
                     <h2>결과 표시 방식</h2>
                     <label>

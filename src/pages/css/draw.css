@@ -8,6 +8,10 @@
     flex-direction: column;
     /* // */
     padding: 2rem;
+    background-image: url(./img/bg.jpg);
+    background-size: cover;
+    overflow: hidden;
+    position: relative;
 }
 
 
@@ -30,6 +34,7 @@
 }
 
 .draw-wrapper {
+    margin-top: 10rem;
     width: 480px;
 }
 
@@ -40,8 +45,30 @@
 .draw h1 {
     font-size: 3em;
     font-family: 'Paperlogy-8ExtraBold';
-    margin: 1rem 0 0;
     color: #ffffff;
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    text-indent: -99999px;
+    overflow: hidden;
+    background-image: url(./img/title.png);
+    background-size: contain;
+    background-repeat: no-repeat;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+@media screen and (orientation: landscape) {
+    .draw h1 {
+        background-image: url(./img/title_h.png);
+    }
+}
+
+.draw-main {
+    position: relative;
+    z-index: 2;
 }
 
 .draw p {
@@ -119,6 +146,7 @@
     width: 100%;
     color: #ffffff;
     margin: 0 auto;
+    background-color: #77e7ff;
 }
 
 
@@ -161,9 +189,10 @@
 
 .draw .go-admin {
     text-decoration: none;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(0, 0, 0, 0.075);
     margin-top: 1em;
     display: block;
+    text-align: center;
 }
 
 .draw-contents h2,
@@ -202,7 +231,7 @@
     height: 3rem !important;
     padding: 0 !important;
     border: 0 !important;
-    background-color: #f5f7f9 !important;
+    background-color: #f5f7f9;
     min-width: 120px;
     display: flex;
     align-items: center;
@@ -468,4 +497,53 @@ button.btn-capture:disabled {
     color: #ffffff;
     animation: none !important;
     opacity: 1 !important;
+}
+
+/* 공통: 배경이미지 그대로, 위치/각도/크기는 여기서만 제어 */
+.cr {
+  position: absolute;
+  z-index: 1;            /* .draw-main(2) 뒤쪽 = 배경처럼 */
+  pointer-events: none;  /* 클릭 방해 X */
+  background-repeat: no-repeat;
+  background-size: contain;
+  width: 205px;
+  height: 205px;
+  /* 가운데 기준 오프셋 배치 */
+  left: 50%;
+  top: 50%;
+  transform-origin: center;
+}
+
+/* 각 요소별 ‘예쁜’ 위치/각도/스케일 */
+.c1 {
+  background-image: url(./img/c1.png);
+  left: 0;
+  top: auto;
+  bottom: 0;
+  width: 410px;
+  height: 410px;
+}
+
+.c2 {
+  background-image: url(./img/c2.png);
+  width: 102.5px;
+  height: 102.5px;
+  transform: translate(100px, calc(-50% - 145px));
+}
+
+.c3 {
+  background-image: url(./img/c4.png);
+  top: unset;
+  left: unset;
+  bottom: 0;
+  right: 0;
+  width: 205px;
+  height: 205px;
+}
+
+@media screen and (max-width: 1100px) {
+    .c1 {
+        left: -40px;
+        bottom: -40px;
+    }
 }
