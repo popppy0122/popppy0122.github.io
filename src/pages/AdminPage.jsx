@@ -27,6 +27,7 @@ function AdminPage() {
     const [showModal, setShowModal] = useState(false);
     const isAdmin = useAuthStore((s) => s.isAdmin);
     const navigate = useNavigate();
+    const MAX_PRIZES = 15; // 필요 개수로 변경
 
     useEffect(() => {
         if (!isAdmin) {
@@ -180,7 +181,7 @@ function AdminPage() {
                 <button className='lock-prize btn-white' onClick={() => setLocked(!isLocked)}>
                     {isLocked ? '잠금해제' : '설정잠금'}
                 </button>
-                <button className='add-prize btn-white' onClick={addPrize} disabled={isLocked || prizes.length >= 10}>
+                <button className='add-prize btn-white' onClick={addPrize} disabled={isLocked || prizes.length >= MAX_PRIZES}>
                     상품추가
                 </button>
                 <div className="admin-summary">

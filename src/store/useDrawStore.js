@@ -12,6 +12,7 @@ import {
 } from '../firebase/firebaseConfig';
 
 const PRIZE_DOC = doc(db, 'settings', 'prizes');
+const MAX_PRIZES = 100; // 필요 개수로 변경
 
 const useDrawStore = create((set, get) => ({
     prizes: [],
@@ -113,7 +114,7 @@ const useDrawStore = create((set, get) => ({
     addPrize: () =>
         set((state) => {
             const nextRank = state.prizes.length + 1;
-            if (nextRank > 10) return state;
+            if (nextRank > MAX_PRIZES) return state;
             return {
                 prizes: [
                     ...state.prizes,
